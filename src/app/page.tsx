@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils";
 import { useFormStatus } from "react-dom";
@@ -42,7 +42,7 @@ export default function Home() {
   type CountryCodeMap = Record<string, string>;
  // todo , use react form action to submit the form
   async function validate(){
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API as string);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
    
     

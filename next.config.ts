@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images:{
+    domains: ['www.countryflags.io']
+  },
+  env: {
+    GEMINI_API: process.env.GEMINI_API
+  }
 };
 
 export default nextConfig;

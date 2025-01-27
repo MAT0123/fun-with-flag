@@ -1,18 +1,47 @@
 "use client"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { count, log } from "console";
-import { revalidatePath } from "next/cache";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import {  useEffect, useReducer } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils";
-import { useFormStatus } from "react-dom";
 
+
+type Action<T> = {
+   type:string,
+   payload?: T
+}
 export default function Home() {
-  const [countryGuessed , setCountryGuessed] = useState<number>(0);
+  const initialState = {
+    attempt: "",
+    countryGuessed: 0,
+    wrong: "undecided",
+    randomCountry: "",
+    randomCountryIndex: 0,
+    correctCountry: "",
+    isPending: false
+  }
+  function reducer<T>(states: typeof initialState, action: Action<T>): typeof initialState{
+    switch(action.type){
+      case "SET_ATTEMPT":
+        return {...states, attempt : action.payload as string}
+      case "SET_COUNTRY_GUESSED":
+        return {...states, countryGuessed: action.payload as number}
+      case "SET_WRONG":
+        return {...states, wrong: action.payload as string}
+      case "SET_RANDOM_COUNTRY":
+        return {...states, randomCountry: action.payload as string}
+      case "SET_RANDOM_COUNTRY_INDEX":
+        return {...states, randomCountryIndex: action.payload as number}
+      case "SET_CORRECT_COUNTRY":
+        return {...states, correctCountry: action.payload as string}
+      case "SET_IS_PENDING":
+        return {...states, isPending: action.payload as boolean}
+      default:
+        return {...states}
+  }
+}
   const countryCodes: string[] = [
     "AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM", "AW", "AU", "AT", "AZ",
     "BS", "BH", "BD", "BB", "BY", "BE", "BZ", "BJ", "BM", "BT", "BO", "BQ", "BA", "BW", "BV", "BR",
@@ -31,15 +60,8 @@ export default function Home() {
     "TT", "TN", "TR", "TM", "TC", "TV", "UG", "UA", "AE", "GB", "US", "UM", "UY", "UZ", "VU", "VE",
     "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZW"
   ];
-  type Result = "correct" | "wrong" | "undecided";
-  const [randomCountry , setRandomCountry] = useState<string>();
-  const [attempt , setAttempt] = useState<string>("");
+  const [state , dispatch] = useReducer(reducer , initialState);
 
-  const [wrong , setWrong] = useState<Result>("undecided");
-  const [randomCountryIndex , setRandomCountryIndex] = useState<number>(0);
-  const [correctCountry , setCorrectCountry] = useState<string>("");  
-  const [isPending , setIsPending] = useState<boolean>(false);
-  type CountryCodeMap = Record<string, string>;
  // todo , use react form action to submit the form
   async function validate(){
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API as string);
@@ -48,27 +70,26 @@ export default function Home() {
     
   const prompt = ` one is A2_FLAG which is country code (e.g ID , US ) , and USER_GUESED , your task is to validate if USER_GUESED is the similar with the A2_FLAG , typo is acceptable , USER_GUESED written in other language is also fine , abreviation is also fine , lower letter , all capitalize or anything doesnt matter , if no input given , return 0 and country is the correct country , 
    , DO NOT GIVE THE PYTHON CODE DAMN IT , 
-  USER_GUESED = ${attempt} , A2_FLAG = ${randomCountry} , 
+  USER_GUESED = ${state.attempt} , A2_FLAG = ${state.randomCountry} , 
   return in format like this , 
    {
    correct : {1 or 0},
    country : {country name}
   } `;
-  
-    setIsPending(true);
+    dispatch({type: "SET_IS_PENDING", payload: true});
     const result = await model.generateContent(prompt);
-    setIsPending(false);
+    dispatch({type: "SET_IS_PENDING", payload: false});
      const jsonData = JSON.parse(result.response.text().slice(7, -4));
-
-    setCountryGuessed((e) => e + Number(jsonData.correct));
+    dispatch({type: "SET_COUNTRY_GUESSED", payload: state.countryGuessed + Number(jsonData.correct)});
 
     if(jsonData.correct == 1){
-      setWrong("correct");
+      dispatch({type: "SET_WRONG", payload: "correct"});  
   }
     else{
-      setWrong("wrong");
-  }
-  setCorrectCountry(jsonData.country);
+      dispatch({type: "SET_WRONG", payload: "wrong"});
+    }
+    dispatch({type: "SET_CORRECT_COUNTRY", payload: jsonData.country});
+
 
   console.log(result.response.text());
 }
@@ -82,17 +103,14 @@ function deleteCountryByCode(code: string | ""): void {
     console.log(`Country with code ${code} not found.`);
   }
 }
-  const status = useFormStatus();
   useEffect(() => {
-    setRandomCountryIndex(Math.floor(Math.random() * countryCodes.length));
-    setRandomCountry(countryCodes[randomCountryIndex]);
+    dispatch({type: "SET_RANDOM_COUNTRY", payload: countryCodes[Math.floor(Math.random() * countryCodes.length)]});
   }, []);
 
   function submit(){
-    if (randomCountry) { 
+    if (state.randomCountry) { 
        validate();
-       setCorrectCountry("");
-       deleteCountryByCode(randomCountry);
+       dispatch({type: "SET_ATTEMPT", payload: ""});
     } 
   }
   return (
@@ -100,7 +118,7 @@ function deleteCountryByCode(code: string | ""): void {
       {
         
           <Image
-            src={`https://countryflagsapi.netlify.app/flag/${randomCountry}.svg`}
+            src={`https://countryflagsapi.netlify.app/flag/${state.randomCountry}.svg`}
             alt={"country flag"}
             width={250}
             height={150}
@@ -109,26 +127,28 @@ function deleteCountryByCode(code: string | ""): void {
 
       }
 
-        <Input placeholder="Country name" className="w-72" onChange={(e) => {setAttempt(e.target.value)}} value={attempt}/>
+        <Input placeholder="Country name" className="w-72" onChange={(e) => {
+           dispatch({type: "SET_ATTEMPT", payload: e.target.value});
+          }} value={state.attempt}/>
 
         <div className="space-x-4 w-72 flex justify-between">
-        <Button className="w-72" disabled={wrong == "undecided" || isPending == true  ? false : true} onClick={submit} >Submit</Button>
-        <Button onClick={() => { setRandomCountry(countryCodes[Math.floor(Math.random() * countryCodes.length)]); deleteCountryByCode(randomCountry ?? ""); setAttempt("");  setWrong("undecided") ; 
+        <Button className="w-72" disabled={state.wrong == "undecided" || state.isPending == true  ? false : true} onClick={submit} >Submit</Button>
+        <Button onClick={() => {  dispatch({type: "SET_WRONG", payload: "undecided"}); dispatch({type: "SET_RANDOM_COUNTRY", payload: countryCodes[Math.floor(Math.random() * countryCodes.length)]});
         }} className={cn(
     "w-72", 
-    wrong === "correct" ? "bg-green-500" : 
-    wrong === "wrong" ? "bg-red-500" : 
+    state.wrong === "correct" ? "bg-green-500" : 
+    state.wrong === "wrong" ? "bg-red-500" : 
     "bg-black"
   )} >Next</Button>
 
         </div>
 
-        <p>Country guessed: {countryGuessed} / {countryCodes.length}</p>
-{        wrong == "wrong" && 
+        <p>Country guessed: {state.countryGuessed} / {countryCodes.length}</p>
+{        state.wrong == "wrong" && 
                 <Alert className="absolute bottom-2 w-72 right-2">
                 <AlertTitle>Incorrect</AlertTitle>
                 <AlertDescription>
-                {`Incorrect , correct country is ${correctCountry}` }
+                {`Incorrect , correct country is ${state.correctCountry}` }
                 </AlertDescription>
               </Alert>
 }
@@ -136,3 +156,4 @@ function deleteCountryByCode(code: string | ""): void {
     </div>
   );
 }
+

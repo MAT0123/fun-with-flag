@@ -93,16 +93,16 @@ export default function Home() {
 
   console.log(result.response.text());
 }
-function deleteCountryByCode(code: string | ""): void {
-  const index = countryCodes.findIndex(country => country === code);
+// function deleteCountryByCode(code: string | ""): void {
+//   const index = countryCodes.findIndex(country => country === code);
   
-  if (index !== -1) {
-    countryCodes.splice(index, 1);
-    console.log(`Country with code ${code} has been deleted.`);
-  } else {
-    console.log(`Country with code ${code} not found.`);
-  }
-}
+//   if (index !== -1) {
+//     countryCodes.splice(index, 1);
+//     console.log(`Country with code ${code} has been deleted.`);
+//   } else {
+//     console.log(`Country with code ${code} not found.`);
+//   }
+// }
   useEffect(() => {
     dispatch({type: "SET_RANDOM_COUNTRY", payload: countryCodes[Math.floor(Math.random() * countryCodes.length)]});
   }, []);
